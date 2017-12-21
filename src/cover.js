@@ -1,18 +1,60 @@
 const Handlebars = require('handlebars');
+const _ = require('lodash');
+const dotenv = require('dotenv');
+const mailcomposer = require('mailcomposer');
+const mailgun = require('mailgun-js');
 const marked = require('marked');
 const readFile = require('fs-readfile-promise');
 
+// Push environment variables on to the node process
+dotenv.config()
+
 class CoverLetter {
 
-  constructor(letter_path, template_path) {
-    this.letter_path = letter_path;
-    this.template_path = template_path;
+  constructor(config) {
     this.marked = marked;
-    this.templateVariables = {};
+    this.from = this.getConfigKey(
+      config,
+      'from',
+      null,
+      'COVER_FROM_EMAIL',
+    )
+    this.letterPath = this.getConfigKey(
+      config,
+      'letterPath',
+      './example/letter.md',
+      'COVER_LETTER_PATH'
+    );
+    this.templatePath = this.getConfigKey(
+      config,
+      'templatePath',
+      './example/template.html',
+      'COVER_TEMPLATE_PATH'
+    );
+    this.mailgun = mailgun({
+      apiKey: this.getConfigKey(config, 'mailgunApiKey', null, 'MAILGUN_API_KEY'),
+      domain: this.getConfigKey(config, 'mailgunDomain', null, 'MAILGUN_DOMAIN'),
+    });
+    this.templateVariables = this.getConfigKey(
+      config,
+      'templateVariables',
+      {}
+    );
+  }
+
+  getConfigKey(config, key, defaultValue, processKey) {
+    // Try to grab the value from the passed in config
+    let value = _.get(config, key, defaultValue)
+
+    if ((value === null || value === defaultValue) && processKey) {
+      value = _.get(process.env, processKey, defaultValue);
+    }
+
+    return value;
   }
 
   renderLetter() {
-    return readFile(this.letter_path)
+    return readFile(this.letterPath)
       .then(markdown => {
         return this.marked(markdown.toString());
       })
@@ -23,7 +65,7 @@ class CoverLetter {
   }
 
   renderCoverLetter() {
-    let templatePromise = readFile(this.template_path)
+    let templatePromise = readFile(this.templatePath)
       .then(template => {
         return Handlebars.compile(template.toString());
       });
@@ -35,14 +77,52 @@ class CoverLetter {
         const templateVariables = {};
 
         // Insert the letter body into the template variables
-        Object.assign(templateVariables, {body: letter}, this.templateVariables);
+        Object.assign(
+          templateVariables,
+          {body: letter},
+          this.templateVariables
+        );
 
         return template(templateVariables);
       });
   }
 
-  sendLetter(email) {
+  renderPlainTextLetter() {
+    return readFile(this.letterPath)
+      .then(letter => {
+        const template = Handlebars.compile(letter.toString());
+        return template(this.templateVariables);
+      });
+  }
 
+  sendLetter(email) {
+    let renderPromises = [
+      this.renderCoverLetter(),
+      this.renderPlainTextLetter(),
+    ];
+
+    return Promise.all(renderPromises)
+      .then(results => {
+        const [htmlMsg, txtMsg] = [...results];
+        const message = mailcomposer({
+          from: this.from,
+          to: email,
+          subject: this.templateVariables.subject,
+          text: txtMsg,
+          html: htmlMsg,
+        });
+
+        return {
+          to: email,
+          message: message,
+        };
+      })
+      .then(message => {
+        return this.mailgun.messages().sendMime(message, (error, body) => {
+          debugger
+        })
+      })
+      .catch(err => {debugger})
   }
 }
 
