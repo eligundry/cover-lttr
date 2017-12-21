@@ -18,3 +18,13 @@ test('it can render the markdown letter', () => {
     done();
   });
 });
+
+test('it can render the letter into the template', () => {
+  const cl = new CoverLetter(LETTER_PATH, TEMPLATE_PATH);
+
+  cl.renderCoverLetter().then(document => {
+    expect(document).toContain('<p>');
+    expect(document).toContain('DOCTYPE');
+    done();
+  });
+});
