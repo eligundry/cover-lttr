@@ -3,13 +3,13 @@ const CoverLetter = require('../src/cover.js');
 const LETTER_PATH = './example/letter.md';
 const TEMPLATE_PATH = './example/template.html';
 const DEFAULT_CONFIG = {
+  from: 'Eli Gundry <eligundry@gmail.com>',
   letterPath: LETTER_PATH,
   templatePath: TEMPLATE_PATH,
   templateVariables: {
     to: 'tom@example.com',
     subject: 'I Would Like A Job',
   },
-  from: 'Eli Gundry <eligundry@gmail.com>',
 }
 
 test('it can be initialized', () => {
@@ -40,7 +40,7 @@ test('it can render the letter into the template', () => {
 test('it can send the cover letter in an email', () => {
   const cl = new CoverLetter(DEFAULT_CONFIG);
 
-  cl.sendLetter('blah@example.com').then(res => {
+  cl.sendLetter('eligundry@gmail.com').then(res => {
     debugger;
   });
 });

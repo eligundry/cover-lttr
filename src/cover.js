@@ -104,25 +104,32 @@ class CoverLetter {
     return Promise.all(renderPromises)
       .then(results => {
         const [htmlMsg, txtMsg] = [...results];
-        const message = mailcomposer({
+        const opts = {
           from: this.from,
           to: email,
           subject: this.templateVariables.subject,
           text: txtMsg,
           html: htmlMsg,
-        });
-
-        return {
-          to: email,
-          message: message,
         };
+        const mail = new mailcomposer.MailComposer(opts);
+
+        return mail.compile().build((err, compiledMessage) => {
+          const data = {
+            to: email,
+            message: compiledMessage.toString('ascii'),
+          };
+          debugger;
+
+          return this.mailgun.messages().sendMime(data, (error, body) => {
+            if (error) {
+              throw new Exception(body);
+            }
+          });
+        });
       })
-      .then(message => {
-        return this.mailgun.messages().sendMime(message, (error, body) => {
-          debugger
-        })
+      .catch(err => {
+        debugger;
       })
-      .catch(err => {debugger})
   }
 }
 
