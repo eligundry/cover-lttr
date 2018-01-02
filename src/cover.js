@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const mailcomposer = require('mailcomposer');
 const mailgun = require('mailgun-js');
 const marked = require('marked');
+const queryString = require('query-string');
 const readFile = require('fs-readfile-promise');
 
 // Push environment variables on to the node process
@@ -40,6 +41,12 @@ class CoverLetter {
       'templateVariables',
       {}
     );
+    this.googleAnalyticsID = this.getConfigKey(
+      config,
+      'googleAnalyticsID',
+      null,
+      'GOOGLE_ANALYTICS_ID'
+    )
   }
 
   getConfigKey(config, key, defaultValue, processKey) {
@@ -60,26 +67,32 @@ class CoverLetter {
       })
       .then(letter => {
         const template = Handlebars.compile(letter);
-        return template(this.template_variables);
+        return template(this.templateVariables);
       });
   }
 
   renderCoverLetter() {
-    let templatePromise = readFile(this.templatePath)
+    const templatePromise = readFile(this.templatePath)
       .then(template => {
         return Handlebars.compile(template.toString());
       });
-    const renderPromises = [templatePromise, this.renderLetter()];
+    const renderPromises = [
+      templatePromise,
+      this.renderLetter()
+    ];
 
     return Promise.all(renderPromises)
       .then((results) => {
+        let templateVariables = {};
         const [template, letter] = [...results];
-        const templateVariables = {};
 
         // Insert the letter body into the template variables
         Object.assign(
           templateVariables,
-          {body: letter},
+          {
+            body: letter,
+            trackingPixel: this.constructTrackingPixelURL(1),
+          },
           this.templateVariables
         );
 
@@ -118,7 +131,6 @@ class CoverLetter {
             to: email,
             message: compiledMessage.toString('ascii'),
           };
-          debugger;
 
           return this.mailgun.messages().sendMime(data, (error, body) => {
             if (error) {
@@ -126,10 +138,29 @@ class CoverLetter {
             }
           });
         });
-      })
-      .catch(err => {
-        debugger;
-      })
+      });
+  }
+
+  constructTrackingPixelURL(spreadsheetRowID) {
+    if (!this.googleAnalyticsID || !spreadsheetRowID) {
+      return false;
+    }
+
+    const queryStringParts = {
+      v: 1,
+      tid: this.googleAnalyticsID,
+      cid: spreadsheetRowID,
+      t: 'event',
+      ec: 'email',
+      ea: 'open',
+      el: spreadsheetRowID,
+      cs: 'cover-letter',
+      cm: 'email',
+      cn: 'Cover Letter',
+    };
+    const query = queryString.stringify(queryStringParts);
+
+    return `http://www.google-analytics.com/collect?${query}`;
   }
 }
 
