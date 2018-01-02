@@ -32,6 +32,16 @@ class CoverLetter {
       './example/template.html',
       'COVER_TEMPLATE_PATH'
     );
+    this.resumePath = this.getConfigKey(
+      config,
+      'resumePath',
+      './example/resume.pdf',
+      'COVER_RESUME_PATH'
+    );
+    this.spreadsheetRowID = this.getConfigKey(
+      config,
+      'spreadsheetRowID'
+    );
     this.mailgun = mailgun({
       apiKey: this.getConfigKey(config, 'mailgunApiKey', null, 'MAILGUN_API_KEY'),
       domain: this.getConfigKey(config, 'mailgunDomain', null, 'MAILGUN_DOMAIN'),
@@ -91,7 +101,7 @@ class CoverLetter {
           templateVariables,
           {
             body: letter,
-            trackingPixel: this.constructTrackingPixelURL(1),
+            trackingPixel: this.constructTrackingPixelURL(),
           },
           this.templateVariables
         );

@@ -1,0 +1,7 @@
+{
+  "resumePath": "./example/resume.pdf",
+  "templatePath": "./example/template.html",
+  "letterPath": "./example/letter.md",
+  "from": "eligundry@gmail.com",
+  "templateVariables": {}
+}
